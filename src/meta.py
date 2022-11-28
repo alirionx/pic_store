@@ -17,8 +17,6 @@ class FileSystem:
     self.storage_type = "FileSystem"
     self.meta_dir = "./data/meta"
     self.meta_filename = "meta.json"
-    
-    self.data = []
 
     if os.environ.get("FILESYSTEM_META_DIR"):
       self.meta_dir = os.environ.get("FILESYSTEM_META_DIR")
@@ -26,7 +24,6 @@ class FileSystem:
 
     #-------------
     self.check_data_dir()
-    self.load_pictures_meta()
 
 
   #-The Methods----------------------------
@@ -46,17 +43,49 @@ class FileSystem:
         fl.write("[]")     
 
   #----------------------
-  def load_pictures_meta(self):
-    with open(self.meta_file_path, "r") as fl:
-      self.data = json.loads(fl.read())
-    
-  #----------------------
-  def save_pictures_meta(self):
+  def write_pictures_data_to_fs(self, data:list):
     with open(self.meta_file_path, "w") as fl:
-      res = json.dumps(self.data, indent=2)
+      res = json.dumps(data, indent=2)
       fl.write(res)
 
   #----------------------
+  def get_pictures_meta(self):
+    with open(self.meta_file_path, "r") as fl:
+      data = json.loads(fl.read())
+    return data
+
+  #----------------------
+  def get_picture_meta(self, filename:str):
+    with open(self.meta_file_path, "r") as fl:
+      data = json.loads(fl.read())
+    res = [i for i in data if i["filename"] == filename]
+    return res[0]
+
+  #----------------------
+  def add_picture_meta(self, data:dict):
+    pictures_data = self.get_pictures_meta()
+    pictures_data.append(data)
+    self.write_pictures_data_to_fs(data=pictures_data)
+
+  #----------------------
+  def update_picture_meta(self, filename:str, data:dict):
+    pictures_data = self.get_pictures_meta()
+    for item in pictures_data:
+      if item["filename"] == filename:
+        pictures_data[pictures_data.index(item)] = data
+        break
+    self.write_pictures_data_to_fs(data=pictures_data)
+    
+  #----------------------
+  def delete_picture_meta(self, filename:str):
+    pictures_data = self.get_pictures_meta()
+    res = [i for i in pictures_data if not (i['filename'] == filename)] # NICE!!!
+    if len(res) == len(pictures_data):
+      raise Exception("item with filename '%s' not found" %filename)
+    self.write_pictures_data_to_fs(data=res)
+
+  #----------------------
+  
   #----------------------
 
 
@@ -82,7 +111,6 @@ class CouchDb:
     self.create_connection_str()
     self.build_couch_cli()
     self.check_db()
-    self.load_pictures_meta()
 
 
   #-The Methods--------------------
@@ -122,28 +150,41 @@ class CouchDb:
       db = self.couch_cli.create(self.couchdb_database)
 
   #----------------------
-  def load_pictures_meta(self):
+  def get_pictures_meta(self):
+    data = []
     db = self.couch_cli[self.couchdb_database]
     for id in db:
-      self.data.append(dict(db[id]))
+      data.append(dict(db[id]))
+    return data
+  
+  #----------------------
+  def get_picture_meta(self, filename:str):
+    db = self.couch_cli[self.couchdb_database]
+    for id in db:
+      id = db[id]["filename"].split(".")[0]
+      if db[id]["filename"] == filename:
+        return dict(db[id])
+    raise Exception("item '%s' not found." %filename)
     
   #----------------------
-  def save_pictures_meta(self):
+  def add_picture_meta(self, data:dict):
+    id = data["filename"].split(".")[0]
     db = self.couch_cli[self.couchdb_database]
-    tmp_id_list = []
-    for item in self.data:
-      id = item["filename"].split(".")[0]
-      tmp_id_list.append(id)
-      if id in db:
-        db[id] = db[id] | item  # UIUIUIUIUIU
-      else: db[id] = item
-    
-    print(tmp_id_list)
-    db = self.couch_cli[self.couchdb_database]
-    for id in db:
-      if id not in tmp_id_list:
-        db.delete(db[id])
+    db[id] = data
 
+  #----------------------
+  def update_picture_meta(self, filename:str, data:dict):
+    id = data["filename"].split(".")[0]
+    db = self.couch_cli[self.couchdb_database]
+    db[id] = db[id] | data  # UIUIUIUIUIU
+
+  #----------------------
+  def delete_picture_meta(self, filename:str):
+    id = filename.split(".")[0]
+    db = self.couch_cli[self.couchdb_database]
+    if id not in db:
+      raise Exception("item '%s' not found." %filename)
+    db.delete(db[id])
 
   #----------------------
   #----------------------
@@ -161,30 +202,11 @@ class MetaStore(StorageType):
 
   def __init__(self):
     super().__init__()
-    print(self.storage_type)
+    print("Meta Backend: " + self.storage_type)
+  
   
   #----------------------
-  def list_picture_meta(self):
-    return self.data
-
-  #----------------------
-  def add_picture_meta(self, data:dict):
-    self.data.append(data)
-    self.save_pictures_meta()
-    
-  #----------------------
-  def update_picture_meta(self, filename:str, data:dict):
-    for item in self.data:
-      if item["filename"] == filename:
-        self.data[self.data.index(item)] = data
-        break
-    self.save_pictures_meta()
   
-  #----------------------
-  def delete_picture_meta(self, filename:str):
-    res = [i for i in self.data if not (i['filename'] == filename)] # NICE!!!
-    self.data = res
-    self.save_pictures_meta()
 
 
 #---------------------------------------------------------

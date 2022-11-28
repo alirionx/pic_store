@@ -15,27 +15,26 @@ from meta import MetaStore
 
 # res = myPicStore.list_pictures()
 # print(json.dumps(res, indent=2, default=str))
-# myPicStore.delete_picture(filename="ee40ba4c-eff4-4c6c-8c05-8c856a073aec.jpeg")
+# myPicStore.delete_image(filename="ee40ba4c-eff4-4c6c-8c05-8c856a073aec.jpeg")
 
-# res = myPicStore.get_picture_as_byte(filename="bf396953-0285-45fd-a9ae-f303d2b5818c.jpeg")
+# res = myPicStore.get_image_as_byte(filename="bf396953-0285-45fd-a9ae-f303d2b5818c.jpeg")
 # print(len(res))
 
 myMetaStore = MetaStore()
 
 data = {
-  "filename": "ee40ba4c-eff4-4c6c-8c05-8c856a073aec.jpeg",
-  "album": "Malle 2033",
-  "format": "Landscape"
+  "filename": "bf396953-0285-45fd-a9ae-f303d2b5818c.jpeg",
+  "album": "Freizeit",
+  "format": "Square"
 }
 
 # myMetaStore.add_picture_meta(data=data)
-myMetaStore.update_picture_meta(
-  filename="ee40ba4c-eff4-4c6c-8c05-8c856a073aec.jpeg", 
-  data=data
-)
+# myMetaStore.update_picture_meta(
+#   filename="ee40ba4c-eff4-4c6c-8c05-8c856a073aec.jpeg", 
+#   data=data
+# )
 
-# myMetaStore.delete_picture_meta(filename="bf396953-0285-45fd-a9ae-f303d2b5818cy.jpeg")
+myMetaStore.delete_picture_meta(filename="bf396953-0285-45fd-a9ae-f303d2b5818c.jpeg")
 
-# myMetaStore.save_pictures_meta()
-res = myMetaStore.list_picture_meta()
+res = myMetaStore.get_pictures_meta()
 print(res)

@@ -9,6 +9,7 @@ from PIL import Image
 
 #-Some Globals--------------------------------------------
 IMAGE_FORMAT = "jpeg"
+THUMB_TAG = "thumb"
 IMAGE_MAX_WIDTH = 1920
 IMAGE_MAX_HEIGHT = 1080
 THUMB_MAX_WIDTH = 480
@@ -22,9 +23,12 @@ class FileSystem:
   def __init__(self):
     self.storage_type = "FileSystem"
     self.pics_path = "./data/pics"
+    self.thumbs_path = "./data/thumbs"
 
     if os.environ.get("FILESYSTEM_PICS_PATH"):
       self.pics_path = os.environ.get("FILESYSTEM_PICS_PATH")
+    if os.environ.get("FILESYSTEM_THUMBS_PATH"):
+      self.pics_path = os.environ.get("FILESYSTEM_THUMBS_PATH")
 
     self.check_data_dir()
 
@@ -32,13 +36,20 @@ class FileSystem:
   def check_data_dir(self):
     if not os.path.isdir(self.pics_path):
       os.makedirs(self.pics_path)
+    if not os.path.isdir(self.thumbs_path):
+      os.makedirs(self.thumbs_path)
 
   #----------------------
-  def list_pictures(self):
-    res = os.listdir(self.pics_path)
+  def list_images(self, typ:str="picture"):
+    if typ == "thumb":
+      cur_path = self.thumbs_path
+    else:
+      cur_path = self.pics_path
+
+    res = os.listdir(cur_path)
     data = []
     for filename in res:
-      cur_path = os.path.join(self.pics_path, filename)
+      cur_path = os.path.join(cur_path, filename)
       if not os.path.isfile(cur_path):
         continue
       item = os.stat(cur_path)
@@ -55,10 +66,9 @@ class FileSystem:
     if not id:
       id = uuid.uuid4()
     
-    image_filename = str(id) + "." + format
-    thumb_filename = str(id) + ".thumb." + format
-    image_path = os.path.join(self.pics_path, image_filename)
-    thumb_path = os.path.join(self.pics_path, thumb_filename)
+    filename = str(id) + "." + format
+    image_path = os.path.join(self.pics_path, filename)
+    thumb_path = os.path.join(self.thumbs_path, filename)
     
     with open(image_path, "wb") as fl:
       fl.write(image_payload)
@@ -66,16 +76,22 @@ class FileSystem:
       fl.write(thumb_payload)
 
   #----------------------
-  def get_picture_as_byte(self, filename:str):
-    pic_path = os.path.join(self.pics_path, filename)
+  def get_image_as_byte(self, filename:str, typ:str="picture"):
+    if typ == "thumb":
+      cur_path = self.thumbs_path
+    else:
+      cur_path = self.pics_path
+
+    pic_path = os.path.join(cur_path, filename)
     with open(pic_path, "rb") as fl:
-      stream = fl.read()
-    return stream
+      yield from fl
 
   #----------------------
-  def delete_picture(self, filename:str):
-    pic_path = os.path.join(self.pics_path, filename)
-    os.unlink(pic_path)
+  def delete_image(self, filename:str):
+    image_path = os.path.join(self.pics_path, filename)
+    thumb_path = os.path.join(self.thumbs_path, filename)
+    os.unlink(image_path)
+    os.unlink(thumb_path)
 
   #----------------------
   #----------------------
@@ -93,7 +109,8 @@ class MinIo:
     self.minio_tls = False    
     self.minio_user = "minio"    
     self.minio_password = "minio"    
-    self.minio_bucket = "pictures"    
+    self.minio_pics_bucket = "pictures"
+    self.minio_thumbs_bucket = "thumbs"
     self.minio_cli = None
 
     #--------------
@@ -126,13 +143,20 @@ class MinIo:
   def check_bucket(self):
     res = self.minio_cli.list_buckets()
     # print(res)
-    if not self.minio_cli.bucket_exists(self.minio_bucket):
-      self.minio_cli.make_bucket(self.minio_bucket)
+    if not self.minio_cli.bucket_exists(self.minio_pics_bucket):
+      self.minio_cli.make_bucket(self.minio_pics_bucket)
+    if not self.minio_cli.bucket_exists(self.minio_thumbs_bucket):
+      self.minio_cli.make_bucket(self.minio_thumbs_bucket)
 
   #----------------------
-  def list_pictures(self):
+  def list_images(self, typ:str="picture"):
+    if typ == "thumb":
+      cur_bucket = self.minio_thumbs_bucket
+    else:
+      cur_bucket = self.minio_pics_bucket
+
     res = self.minio_cli.list_objects(
-      bucket_name=self.minio_bucket
+      bucket_name=cur_bucket
     )
     data = []
     for item in res:
@@ -149,34 +173,44 @@ class MinIo:
     if not id:
       id = uuid.uuid4()
     
-    image_object_name = str(id) + "." + format
-    thumb_object_name = str(id) + ".thumb." + format
+    object_name = str(id) + "." + format
+    
     self.minio_cli.put_object(
-      bucket_name=self.minio_bucket,
-      object_name=image_object_name, 
+      bucket_name=self.minio_pics_bucket,
+      object_name=object_name, 
       data=io.BytesIO(image_payload),
       length=len(image_payload)
     )
     self.minio_cli.put_object(
-      bucket_name=self.minio_bucket,
-      object_name=thumb_object_name, 
+      bucket_name=self.minio_thumbs_bucket,
+      object_name=object_name, 
       data=io.BytesIO(thumb_payload),
       length=len(thumb_payload)
     )
     
   #----------------------
-  def get_picture_as_byte(self, filename:str):
+  def get_image_as_byte(self, filename:str, typ:str="picture"):
+    if typ == "thumb":
+      cur_bucket = self.minio_thumbs_bucket
+    else:
+      cur_bucket = self.minio_pics_bucket
+
     res = self.minio_cli.get_object(
       object_name=filename,
-      bucket_name=self.minio_bucket
+      bucket_name=cur_bucket
     )
-    return res.read()
+    # return res.read()
+    return res
 
   #----------------------
-  def delete_picture(self, filename:str):
+  def delete_image(self, filename:str):
     self.minio_cli.remove_object(
       object_name=filename,
-      bucket_name=self.minio_bucket,
+      bucket_name=self.minio_pics_bucket,
+    )
+    self.minio_cli.remove_object(
+      object_name=filename,
+      bucket_name=self.minio_thumbs_bucket,
     )
 
   #---------------------- 
@@ -195,7 +229,7 @@ class PicStore(StorageType):
 
   def __init__(self):
     super().__init__()
-    print(self.storage_type)
+    print("Storage Backend: " + self.storage_type)
 
   def convert_picture(self, payload:bytes):
     img = Image.open(io.BytesIO(payload))
@@ -216,6 +250,7 @@ class PicStore(StorageType):
       new_width = int(new_height * resize_factor)
 
     new_img = img.resize( (new_width, new_height) )
+    new_img = new_img.convert('RGB')
     blo = io.BytesIO()
     new_img.save(blo, format=IMAGE_FORMAT)
     blo.seek(0)
@@ -233,6 +268,7 @@ class PicStore(StorageType):
       new_width = int(new_height * resize_factor)
 
     new_img = img.resize( (new_width, new_height) )
+    new_img = new_img.convert('RGB')
 
     blo = io.BytesIO()
     new_img.save(blo, format=IMAGE_FORMAT)
