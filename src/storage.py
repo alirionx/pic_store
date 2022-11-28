@@ -11,7 +11,8 @@ from PIL import Image
 IMAGE_FORMAT = "jpeg"
 IMAGE_MAX_WIDTH = 1920
 IMAGE_MAX_HEIGHT = 1080
-
+THUMB_MAX_WIDTH = 480
+THUMB_MAX_HEIGHT = 360
 
 
 #---------------------------------------------------------
@@ -50,15 +51,26 @@ class FileSystem:
     return data
 
   #----------------------
-  def save_picture(self, payload:bytes, id:str=None, format:str=IMAGE_FORMAT):
+  def save_picture(self, image_payload:bytes, thumb_payload:bytes, id:str=None, format:str=IMAGE_FORMAT):
     if not id:
       id = uuid.uuid4()
     
-    filename = str(id) + "." + format
-    pic_path = os.path.join(self.pics_path, filename)
+    image_filename = str(id) + "." + format
+    thumb_filename = str(id) + ".thumb." + format
+    image_path = os.path.join(self.pics_path, image_filename)
+    thumb_path = os.path.join(self.pics_path, thumb_filename)
     
-    with open(pic_path, "wb") as fl:
-      fl.write(payload)
+    with open(image_path, "wb") as fl:
+      fl.write(image_payload)
+    with open(thumb_path, "wb") as fl:
+      fl.write(thumb_payload)
+
+  #----------------------
+  def get_picture_as_byte(self, filename:str):
+    pic_path = os.path.join(self.pics_path, filename)
+    with open(pic_path, "rb") as fl:
+      stream = fl.read()
+    return stream
 
   #----------------------
   def delete_picture(self, filename:str):
@@ -113,7 +125,7 @@ class MinIo:
   #----------------------
   def check_bucket(self):
     res = self.minio_cli.list_buckets()
-    print(res)
+    # print(res)
     if not self.minio_cli.bucket_exists(self.minio_bucket):
       self.minio_cli.make_bucket(self.minio_bucket)
 
@@ -133,18 +145,33 @@ class MinIo:
     return data
 
   #----------------------
-  def save_picture(self, payload:bytes, id:str=None, format:str=IMAGE_FORMAT):
+  def save_picture(self, image_payload:bytes, thumb_payload:bytes, id:str=None, format:str=IMAGE_FORMAT):
     if not id:
       id = uuid.uuid4()
     
-    object_name = str(id) + "." + format
+    image_object_name = str(id) + "." + format
+    thumb_object_name = str(id) + ".thumb." + format
     self.minio_cli.put_object(
       bucket_name=self.minio_bucket,
-      object_name=object_name, 
-      data=io.BytesIO(payload),
-      length=len(payload)
+      object_name=image_object_name, 
+      data=io.BytesIO(image_payload),
+      length=len(image_payload)
+    )
+    self.minio_cli.put_object(
+      bucket_name=self.minio_bucket,
+      object_name=thumb_object_name, 
+      data=io.BytesIO(thumb_payload),
+      length=len(thumb_payload)
     )
     
+  #----------------------
+  def get_picture_as_byte(self, filename:str):
+    res = self.minio_cli.get_object(
+      object_name=filename,
+      bucket_name=self.minio_bucket
+    )
+    return res.read()
+
   #----------------------
   def delete_picture(self, filename:str):
     self.minio_cli.remove_object(
@@ -152,10 +179,7 @@ class MinIo:
       bucket_name=self.minio_bucket,
     )
 
-  #----------------------
-
-  #----------------------
-  
+  #---------------------- 
   #----------------------
 
 
@@ -175,12 +199,33 @@ class PicStore(StorageType):
 
   def convert_picture(self, payload:bytes):
     img = Image.open(io.BytesIO(payload))
+
     if img.width >= img.height:
       resize_factor = img.height / img.width
       if img.width > IMAGE_MAX_WIDTH: 
         new_width = IMAGE_MAX_WIDTH
       else:
         new_width = img.width
+      new_height = int(new_width * resize_factor)
+    else:
+      resize_factor = img.width / img.height
+      if img.height > IMAGE_MAX_HEIGHT: 
+        new_height = IMAGE_MAX_HEIGHT
+      else:
+        new_height = img.height
+      new_width = int(new_height * resize_factor)
+
+    new_img = img.resize( (new_width, new_height) )
+    blo = io.BytesIO()
+    new_img.save(blo, format=IMAGE_FORMAT)
+    blo.seek(0)
+    image_payload = blo.read()
+    # print(len(new_payload))
+
+    #--------------------------
+    if img.width >= img.height:
+      resize_factor = img.height / img.width
+      new_width = THUMB_MAX_WIDTH
       new_height = int(new_width * resize_factor)
     else:
       resize_factor = img.width / img.height
@@ -192,9 +237,8 @@ class PicStore(StorageType):
     blo = io.BytesIO()
     new_img.save(blo, format=IMAGE_FORMAT)
     blo.seek(0)
-    new_payload = blo.read()
-    # print(len(new_payload))
-
-    return new_payload
+    thumb_payload = blo.read()
+    
+    return image_payload, thumb_payload
 
 #---------------------------------------------------------
