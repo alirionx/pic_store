@@ -49,10 +49,10 @@ class FileSystem:
     res = os.listdir(cur_path)
     data = []
     for filename in res:
-      cur_path = os.path.join(cur_path, filename)
-      if not os.path.isfile(cur_path):
+      cur_file_path = os.path.join(cur_path, filename)
+      if not os.path.isfile(cur_file_path):
         continue
-      item = os.stat(cur_path)
+      item = os.stat(cur_file_path)
       new_item = {
         "filename": filename,
         "uploaded": int(item.st_mtime),
