@@ -15,14 +15,14 @@ export default {
   },
   data(){
     return {
-      thumb_base_path: "/api/thumb/"
+
     }
   },
   methods:{
     ...mapMutations([ "set_image_show", "reset_image_show" ]),
 
     get_img_path(filename){
-      let url_path = this.thumb_base_path + filename
+      let url_path = this.$store.state.thumb_base_path + filename
       return url_path
     }
   }
@@ -42,7 +42,7 @@ export default {
   background-position: center;
   cursor: pointer;
   border-radius: 4px;
-  border: 1px solid #444;
+  border: 8px solid #fff;
   box-shadow: 1px 4px 8px #444;
 }
 .thumb:hover{

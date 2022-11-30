@@ -3,7 +3,8 @@ import json
 from storage import PicStore
 from meta import MetaStore
 
-# myPicStore = PicStore()
+myPicStore = PicStore()
+# myPicStore.get_image_by_filename(filename="")
 
 
 # with open("./tmp/DaFinoAtWork.jpg", "rb") as fl:
@@ -20,13 +21,13 @@ from meta import MetaStore
 # res = myPicStore.get_image_as_byte(filename="bf396953-0285-45fd-a9ae-f303d2b5818c.jpeg")
 # print(len(res))
 
-myMetaStore = MetaStore()
+# myMetaStore = MetaStore()
 
-data = {
-  "filename": "bf396953-0285-45fd-a9ae-f303d2b5818c.jpeg",
-  "album": "Freizeit",
-  "format": "Square"
-}
+# data = {
+#   "filename": "bf396953-0285-45fd-a9ae-f303d2b5818c.jpeg",
+#   "album": "Freizeit",
+#   "format": "Square"
+# }
 
 # myMetaStore.add_picture_meta(data=data)
 # myMetaStore.update_picture_meta(
@@ -34,7 +35,7 @@ data = {
 #   data=data
 # )
 
-myMetaStore.delete_picture_meta(filename="bf396953-0285-45fd-a9ae-f303d2b5818c.jpeg")
+# myMetaStore.delete_picture_meta(filename="bf396953-0285-45fd-a9ae-f303d2b5818c.jpeg")
 
-res = myMetaStore.get_pictures_meta()
-print(res)
+# res = myMetaStore.get_pictures_meta()
+# print(res)

@@ -40,6 +40,21 @@ class FileSystem:
       os.makedirs(self.thumbs_path)
 
   #----------------------
+  def get_image_by_filename(self, filename:str, typ:str="picture"):
+    if typ == "thumb":
+      cur_path = self.thumbs_path
+    else:
+      cur_path = self.pics_path
+    cur_file_path = os.path.join(cur_path, filename)
+    item = os.stat(cur_file_path)
+    new_item = {
+      "filename": filename,
+      "uploaded": int(item.st_mtime),
+      "size": item.st_size,
+    }
+    return new_item
+
+  #----------------------
   def list_images(self, typ:str="picture"):
     if typ == "thumb":
       cur_path = self.thumbs_path
@@ -74,6 +89,8 @@ class FileSystem:
       fl.write(image_payload)
     with open(thumb_path, "wb") as fl:
       fl.write(thumb_payload)
+
+    return filename
 
   #----------------------
   def get_image_as_byte(self, filename:str, typ:str="picture"):
@@ -149,6 +166,25 @@ class MinIo:
       self.minio_cli.make_bucket(self.minio_thumbs_bucket)
 
   #----------------------
+  def get_image_by_filename(self, filename:str, typ:str="picture"):
+    if typ == "thumb":
+      cur_bucket = self.minio_thumbs_bucket
+    else:
+      cur_bucket = self.minio_pics_bucket
+
+    res = self.minio_cli.stat_object(
+      bucket_name=cur_bucket,
+      object_name=filename
+    )
+    # print(res.__dict__)
+    item = {
+      "filename": filename,
+      "uploaded": int(datetime.datetime.timestamp(res.__dict__["_last_modified"])), # Kleinigkeit ;)
+      "size": res.__dict__["_size"]
+    }
+    return item
+
+  #----------------------
   def list_images(self, typ:str="picture"):
     if typ == "thumb":
       cur_bucket = self.minio_thumbs_bucket
@@ -187,6 +223,7 @@ class MinIo:
       data=io.BytesIO(thumb_payload),
       length=len(thumb_payload)
     )
+    return object_name
     
   #----------------------
   def get_image_as_byte(self, filename:str, typ:str="picture"):

@@ -81,8 +81,18 @@ async def api_images_get(request: Request):
   return data
 
 #--------------------
-@app.get("/api/picture/{filename}", tags=["storage"])
+@app.get("/api/picture/{filename}", tags=["storage"], response_model=Picture)
 @app.get("/api/thumb/{filename}", tags=["storage"])
+def api_image_get(filename, request: Request):
+  if "thumb" in str(request.url): typ = "thumb"
+  else: typ = "picture"
+
+  res = myPicStore.get_image_by_filename(filename=filename)
+  return res
+
+#--------------------
+@app.get("/api/dl/picture/{filename}", tags=["storage"])
+@app.get("/api/dl/thumb/{filename}", tags=["storage"])
 def api_image_get(filename, request: Request):
   if "thumb" in str(request.url): typ = "thumb"
   else: typ = "picture"
@@ -99,14 +109,22 @@ def api_image_get(filename, request: Request):
 async def api_pictures_post(file: UploadFile):
   payload = await file.read()
   image_payload, thumb_payload = myPicStore.convert_picture(payload=payload)
-  myPicStore.save_picture(image_payload=image_payload, thumb_payload=thumb_payload)
-  return file.filename
+  new_filename = myPicStore.save_picture(image_payload=image_payload, thumb_payload=thumb_payload)
+
+  myMetaStore.add_picture_meta( {"filename": new_filename } )
+
+  new_item = {
+    "picture": myPicStore.get_image_by_filename(filename=new_filename),
+    "thumb": myPicStore.get_image_by_filename(filename=new_filename, typ="thumb")
+  }
+  return new_item
 
 #--------------------
 @app.delete("/api/image/{filename}", tags=["storage"])
 def api_image_delete(filename):
   try:
     myPicStore.delete_image(filename=filename)
+    myMetaStore.delete_picture_meta(filename=filename)
   except Exception as e:
     return HTTPException(status_code=400, detail=str(e))
 
@@ -139,7 +157,7 @@ async def api_meta_item_post(item:Meta):
     return HTTPException(status_code=400, detail=msg)
   
   data = myMetaStore.add_picture_meta(data=dict(item))
-  return img
+  return item
 
 #--------------------
 @app.put("/api/meta/{filename}", tags=["meta"])
@@ -152,8 +170,8 @@ async def api_meta_item_post(filename, item:Meta):
     msg = "picture with filename '%s' does not exsist." %item.filename
     return HTTPException(status_code=400, detail=msg)
   
-  data = myMetaStore.update_picture_meta(filename=filename, data=dict(item))
-  return img
+  myMetaStore.update_picture_meta(filename=filename, data=dict(item))
+  return item
 
 #--------------------
 @app.delete("/api/meta/{filename}", tags=["meta"])
