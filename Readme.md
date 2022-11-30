@@ -8,3 +8,30 @@
 * couchdb
 * fastapi
 * vueJS
+
+<br>
+
+### App/Docker Environment Vars:
+* STORAGE_BACKEND ["filesystem"* | "minio"]
+* META_BACKEND ["filesystem"* | "couchdb"]
+
+* FILESYSTEM_PICS_PATH "./data/pics"*
+* FILESYSTEM_THUMBS_PATH "./data/thumbs"*
+* MINIO_SERVER "localhost"*
+* MINIO_PORT 9000*
+* MINIO_TLS False*
+* MINIO_USER "minio"*
+* MINIO_PASSWORD "minio"*
+* MINIO_PICS_BUCKET "pictures"*
+* MINIO_THIMBS_BUCKET "thumbs"*
+
+* COUCHDB_SERVER "localhost"*
+* COUCHDB_PORT 5984*
+* COUCHDB_TLS False*
+* COUCHDB_USER "couchdb"*
+* COUCHDB_PASSWORD "couchdb"*
+* COUCHDB_DATABASE "pictures"*
+
+
+
+\* default
