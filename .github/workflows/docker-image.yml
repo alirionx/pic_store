@@ -46,4 +46,4 @@ jobs:
           context: .
           platforms: linux/amd64
           push: true
-          tags: ghcr.io/alirionx/csp-lineitem-collector:latest
+          tags: ghcr.io/alirionx/pic_store:latest
