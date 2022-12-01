@@ -1,0 +1,236 @@
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: pic-store
+
+---
+apiVersion: apps/v1
+kind: StatefulSet
+metadata:
+  name: minio
+  namespace: pic-store
+spec:
+  selector:
+    matchLabels:
+      app: minio
+  serviceName: "minio-service"
+  replicas: 1
+  template:
+    metadata:
+      labels:
+        app: minio
+    spec:
+      terminationGracePeriodSeconds: 10
+      containers:
+      - name: minio
+        image: minio/minio:latest
+        ports:
+        - containerPort: 9000
+          name: api
+        - containerPort: 9001
+          name: webui
+        env:
+        - name: MINIO_ROOT_USER
+          value: "minio"
+        - name: MINIO_ROOT_PASSWORD
+          value: "VERYSECRET"
+        args: 
+        - server
+        # - http://minio-0.minio.vod-stack.svc.cluster.local/data
+        # - http://minio-1.minio.vod-stack.svc.cluster.local/data
+        # - http://minio-2.minio.vod-stack.svc.cluster.local/data
+        - /data
+        - --console-address 
+        - :9001
+        volumeMounts:
+        - name: minio-data
+          mountPath: /data
+  volumeClaimTemplates:
+  - metadata:
+      name: minio-data
+    spec:
+      accessModes: [ "ReadWriteOnce" ]
+      storageClassName: "longhorn"
+      resources:
+        requests:
+          storage: 1Gi
+
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: minio-service
+  namespace: pic-store
+spec:
+  selector:
+    app: minio
+  type: ClusterIP
+  ports:
+  - name: api
+    protocol: TCP
+    port: 9000
+    targetPort: 9000
+  - name: webui
+    protocol: TCP
+    port: 9001
+    targetPort: 9001
+
+---
+apiVersion: apps/v1
+kind: StatefulSet
+metadata:
+  name: couchdb
+  namespace: pic-store
+spec:
+  selector:
+    matchLabels:
+      app: couchdb
+  serviceName: "couchdb-service"
+  replicas: 1
+  template:
+    metadata:
+      labels:
+        app: couchdb
+    spec:
+      terminationGracePeriodSeconds: 10
+      containers:
+      - name: couchdb
+        image: couchdb:latest
+        ports:
+        - containerPort: 5984
+          name: api
+        env:
+        - name: COUCHDB_USER
+          value: "couchdb"
+        - name: COUCHDB_PASSWORD
+          value: "VERYSECRET"
+        volumeMounts:
+        - name: couchdb-data
+          mountPath: /opt/couchdb/data
+  volumeClaimTemplates:
+  - metadata:
+      name: couchdb-data
+    spec:
+      accessModes: [ "ReadWriteOnce" ]
+      storageClassName: "longhorn"
+      resources:
+        requests:
+          storage: 512Mi
+
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: couchdb-service
+  namespace: pic-store
+spec:
+  selector:
+    app: couchdb
+  type: ClusterIP
+  ports:
+  - name: api
+    protocol: TCP
+    port: 5984
+    targetPort: 5984
+
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: pic-store-deployment
+  namespace: pic-store
+  labels:
+    app: pic-store-deployment
+spec:
+  selector:
+    matchLabels:
+      app: pic-store-deployment
+  replicas: 4
+  strategy:
+    rollingUpdate:
+      maxSurge: 25%
+      maxUnavailable: 25%
+    type: RollingUpdate
+  template:
+    metadata:
+      labels:
+        app: pic-store-deployment
+    spec:
+      containers:
+      - name:  pic-store
+        image: ghcr.io/alirionx/pic_store:latest
+        imagePullPolicy: "Always"
+        env:
+        - name: STORAGE_BACKEND
+          value: "minio"
+        - name: MINIO_SERVER
+          value: "minio-service"
+        - name: MINIO_PORT
+          value: "9000"
+        - name: MINIO_USER
+          value: "minio"
+        - name: MINIO_PASSWORD
+          value: "VERYSECRET"
+
+        - name: META_BACKEND
+          value: "couchdb"
+        - name: COUCHDB_SERVER
+          value: "couchdb-service"
+        - name: COUCHDB_PORT
+          value: "5984"
+        - name: COUCHDB_USER
+          value: "couchdb"
+        - name: COUCHDB_PASSWORD
+          value: "VERYSECRET"
+
+        ports:
+        - containerPort: 5000
+          name:  api
+      restartPolicy: Always
+
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: pic-store-service
+  namespace: pic-store
+spec:
+  selector:
+    app: pic-store-deployment
+  type: ClusterIP
+  sessionAffinity: ClientIP
+  sessionAffinityConfig:
+    clientIP:
+      timeoutSeconds: 10800
+  ports:
+  - name: api
+    protocol: TCP
+    port: 5000
+    targetPort: 5000
+
+---
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: pic-store-ingress
+  namespace: pic-store
+  annotations:
+    cert-manager.io/cluster-issuer: reverse-issuer
+    nginx.ingress.kubernetes.io/backend-protocol: HTTP
+    nginx.ingress.kubernetes.io/rewrite-target: /
+spec:
+  tls:
+  - hosts:
+      - pic-store.app-scape.de
+    secretName: pic-store-app-scape-de-tls
+  rules:
+  - host: pic-store.app-scape.de
+    http:
+      paths:
+      - path: /
+        pathType: Prefix
+        backend:
+          service:
+            name: pic-store-service
+            port:
+              number: 5000

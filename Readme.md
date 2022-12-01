@@ -11,6 +11,11 @@
 
 <br>
 
+### Docker data volume path:
+/app/data
+
+<br>
+
 ### App/Docker Environment Vars:
 * STORAGE_BACKEND ["filesystem"* | "minio"]
 * META_BACKEND ["filesystem"* | "couchdb"]
