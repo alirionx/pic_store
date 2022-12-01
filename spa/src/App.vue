@@ -1,6 +1,6 @@
 <template>
   <div>
-    <div class="headblock">Picture Store - K8s Example App</div>
+    <div class="headblock">{{app_title}}</div>
     <div class="main_btn_frame">
       <img src="./assets/icon_thumbs.png" alt="thumbs view" @click="set_view_thumbs" v-if="$store.state.view=='table'" />
       <img src="./assets/icon_table.png" alt="table view" @click="set_view_table" v-if="$store.state.view=='thumbs'" />
@@ -30,6 +30,11 @@ import { mapMutations } from 'vuex'
 
 export default {
   name: 'App',
+  data(){
+    return{
+      app_title: "Picture Store - K8s Example App"
+    }
+  },
   components: {
     Loader,
     Thumbs,
