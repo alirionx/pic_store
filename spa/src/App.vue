@@ -32,7 +32,7 @@ export default {
   name: 'App',
   data(){
     return{
-      app_title: "Picture Store - K8s Example App"
+      app_title: "Hallo Wastel"
     }
   },
   components: {
