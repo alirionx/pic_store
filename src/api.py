@@ -137,6 +137,11 @@ async def api_meta_get():
   return data
 
 #--------------------
+@app.get("/api/techsession")
+async def hallo_techsession():
+  return {"name": "Wastel"}
+
+#--------------------
 @app.get("/api/meta/{filename}", tags=["meta"])
 async def api_meta_item_get(filename):
   try:
